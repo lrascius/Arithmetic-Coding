@@ -1,6 +1,7 @@
 import numpy
 import math
 import string
+import unittest
 from bigfloat import *
 
 def encode(string, N):
@@ -56,3 +57,63 @@ def encode(string, N):
 				cdftable = dict(zip(alphabet, cdfarray))
 
 		return low, len(string)
+
+def decode(number, length):
+	# define the precision
+	with precision(10000):
+		# get the alphabet a-z
+		alphabet = list(map(chr, range(97, 123)))
+		# get the probability table and initilize it to a uniform distribution of 1
+		pdftable = dict((letter, alphabet.count(letter)) for letter in set(alphabet))
+		cdfarray = numpy.cumsum(list(pdftable.values()))
+		# get the cdftable 
+		cdftable = dict(zip(alphabet, cdfarray))
+
+		# initialize the low and high range 
+		low = BigFloat.exact('0.0', precision=10000)
+		high = BigFloat.exact('1.0', precision=10000)
+		decoded_string = ""
+
+		while True:
+			for symbol in alphabet:
+				# Get the low range of symbol
+				if(symbol == 'a'):
+					low_range_of_symbol = 0
+				else:
+					low_range_of_symbol = (float(cdftable[alphabet[alphabet.index(symbol) - 1]]) / cdftable[alphabet[-1]])	
+				# Get the high range of symbol
+				high_range_of_symbol = (float(cdftable[symbol]) / cdftable[alphabet[-1]])			
+				
+				# compute the range 
+				current_range = high - low
+				# compute the new high candidate for which the new symbol will get decoded from
+				high_candidate = low + current_range * high_range_of_symbol
+				# compute the new low candidate for which the new symbol will get decoded from
+				low_candidate = low + current_range * low_range_of_symbol
+				
+				# if the symbol is between the low candidate and high candidate, it is our next symbol
+				if(low_candidate <= number < high_candidate):
+					decoded_string += symbol
+					# we return when we reach the length of the string
+					if(len(decoded_string) == length):
+						return decoded_string
+					# update the low and high so we can get the next low and high candites to decode the next symbol
+					low = low_candidate
+					high = high_candidate
+					# once we have our range we update the symbol table
+					pdftable[symbol]+=1
+					cdfarray = numpy.cumsum(list((coordinate[1]) for coordinate in sorted(pdftable.items())))
+					cdftable = dict(zip(alphabet, cdfarray))
+
+# A basic unittest to see if the same string is returned from the encoded value
+class TestArithmeticCoding(unittest.TestCase):
+	def setUp(self):
+		self.string = "fsnlafnsafnlnnsaflcpoadsomdopacaorilrwnlcdanfosnafnoqwmwejrojcnpojqndsnaldasodlasdeqweqwenoiqndimaomasodnsoandonqdwiondq"
+
+	def test_arithmetic(self):
+		[number, length] = (encode(self.string, 3))
+		string = decode(number, length)
+		self.assertTrue(string == self.string)
+
+if __name__ == '__main__':
+    unittest.main()
